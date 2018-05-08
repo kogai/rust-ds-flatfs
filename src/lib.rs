@@ -1,36 +1,86 @@
 use std::fs;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::result;
 
+const EXT: &'static str = "data";
 const SHARDING: &'static str = "SHARDING";
 const PREFIX: &'static str = "/repo/flatfs/shard/";
 
 enum Shard {
-	Suffix,
-	Prefix,
-	NextToLast,
+	Suffix(u8),
+	Prefix(u8),
+	NextToLast(u8),
 }
 
 impl Shard {
-	fn from_string(shard: &str) -> Self {
+	fn from_string(shard: &str, shard_length: u8) -> Self {
 		use self::Shard::*;
 		match shard {
-			"suffix" => Suffix,
-			"prefix" => Prefix,
-			"next-to-last" => NextToLast,
+			"suffix" => Suffix(shard_length),
+			"prefix" => Prefix(shard_length),
+			"next-to-last" => NextToLast(shard_length),
 			_ => unreachable!("Invalid string [{}] has been passed.", shard),
 		}
 	}
+
+	fn get_dir_name(&self, key: &String) -> String {
+		use self::Shard::*;
+		match self {
+			Suffix(shard_length) => {
+				unimplemented!();
+			}
+			Prefix(shard_length) => {
+				unimplemented!();
+				// padding := strings.Repeat("_", prefixLen)
+				// fun: func(noslash string) string {
+				// 	return (noslash + padding)[:prefixLen]
+				// },
+			}
+			NextToLast(shard_length) => {
+				unimplemented!();
+			}
+		}
+	}
+
+	/*
+func Suffix(suffixLen int) *ShardIdV1 {
+	padding := strings.Repeat("_", suffixLen)
+	return &ShardIdV1{
+		funName: "suffix",
+		param:   suffixLen,
+		fun: func(noslash string) string {
+			str := padding + noslash
+			return str[len(str)-suffixLen:]
+		},
+	}
+}
+
+func NextToLast(suffixLen int) *ShardIdV1 {
+	padding := strings.Repeat("_", suffixLen+1)
+	return &ShardIdV1{
+		funName: "next-to-last",
+		param:   suffixLen,
+		fun: func(noslash string) string {
+			str := padding + noslash
+			offset := len(str) - suffixLen - 1
+			return str[offset : offset+suffixLen]
+		},
+	}
+}
+	 */
 }
 
 pub struct Datastore {
-	path: String,
+	path: PathBuf,
 	shard: Shard,
-	shard_length: u8,
 }
 
+pub struct Notfound(String);
+pub type Result<T> = result::Result<T, Notfound>;
+
 impl Datastore {
-	fn parse_shard(sharding: String) -> (Shard, u8) {
+	fn parse_shard(sharding: String) -> Shard {
 		let sharding = Path::new(&sharding);
 		match sharding.strip_prefix(PREFIX) {
 			Ok(rest_path) => {
@@ -41,8 +91,8 @@ impl Datastore {
 				let _version = params.next().unwrap();
 				let shard_name = params.next().unwrap();
 				let shard_length = params.next().unwrap();
-				(
-					Shard::from_string(shard_name),
+				Shard::from_string(
+					shard_name,
 					u8::from_str_radix(shard_length, 10)
 						.expect(format!("shard_length [{}] can not parse as integer.", shard_length).as_ref()),
 				)
@@ -53,8 +103,10 @@ impl Datastore {
 
 	pub fn new(path: String) -> Self {
 		if let Ok(_) = fs::create_dir(&path) {};
+		let path = Path::new(&path).to_path_buf();
 		let mut path_of_shard_file = Path::new(&path).to_path_buf();
 		path_of_shard_file.push(SHARDING);
+
 		let sharding = match fs::File::open(&path_of_shard_file) {
 			Ok(mut file) => {
 				let mut buf = String::new();
@@ -70,11 +122,22 @@ impl Datastore {
 				sharding
 			}
 		};
-		let (shard, shard_length) = Datastore::parse_shard(sharding);
-		Datastore {
-			path,
-			shard,
-			shard_length,
+		let shard = Datastore::parse_shard(sharding);
+		Datastore { path, shard }
+	}
+
+	pub fn get(&self, key: String) -> Result<Vec<u8>> {
+		let mut file = (&self).path.clone();
+		file.push(self.shard.get_dir_name(&key));
+		file.push(&key);
+		let _ = file.set_extension(EXT);
+		match fs::File::open(file) {
+			Ok(mut file) => {
+				let mut buf = Vec::new();
+				let _ = file.read_to_end(&mut buf);
+				Ok(buf)
+			}
+			Err(_) => Err(Notfound(format!("datastore: key [{}] not found.", key))),
 		}
 	}
 }
