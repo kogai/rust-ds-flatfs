@@ -1,0 +1,4 @@
+[[package]]
+name = "rust-ds-flatfs"
+version = "0.1.0"
+
