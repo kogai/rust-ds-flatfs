@@ -8,3 +8,7 @@ install:
 	go get -v github.com/ramya-rao-a/go-outline
 	go get -v github.com/nsf/gocode
 	go get -v golang.org/x/tools/cmd/guru
+
+.PHONY: test
+test
+	cargo test
