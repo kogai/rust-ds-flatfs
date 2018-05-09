@@ -27,48 +27,20 @@ impl Shard {
 	fn get_dir_name(&self, key: &String) -> String {
 		use self::Shard::*;
 		match self {
-			Suffix(shard_length) => {
-				unimplemented!();
-			}
-			Prefix(shard_length) => {
-				unimplemented!();
-				// padding := strings.Repeat("_", prefixLen)
-				// fun: func(noslash string) string {
-				// 	return (noslash + padding)[:prefixLen]
-				// },
-			}
+			Suffix(_shard_length) => key.chars().skip(1).collect::<String>(),
+
+			Prefix(shard_length) => key.chars().take(*shard_length as usize).collect::<String>(),
+
 			NextToLast(shard_length) => {
-				unimplemented!();
+				let offset = (key.len() as u8) - shard_length - 1;
+				key
+					.chars()
+					.skip(offset as usize)
+					.take(*shard_length as usize)
+					.collect::<String>()
 			}
 		}
 	}
-
-	/*
-func Suffix(suffixLen int) *ShardIdV1 {
-	padding := strings.Repeat("_", suffixLen)
-	return &ShardIdV1{
-		funName: "suffix",
-		param:   suffixLen,
-		fun: func(noslash string) string {
-			str := padding + noslash
-			return str[len(str)-suffixLen:]
-		},
-	}
-}
-
-func NextToLast(suffixLen int) *ShardIdV1 {
-	padding := strings.Repeat("_", suffixLen+1)
-	return &ShardIdV1{
-		funName: "next-to-last",
-		param:   suffixLen,
-		fun: func(noslash string) string {
-			str := padding + noslash
-			offset := len(str) - suffixLen - 1
-			return str[offset : offset+suffixLen]
-		},
-	}
-}
-	 */
 }
 
 pub struct Datastore {
